@@ -47,51 +47,22 @@ class GCNLayer(nn.Module):
         :return: 图聚合后的新特征矩阵。
                  形状: [batch_size, seq_len, out_features]
         """
-        
-        # ---------------------------------------------------------
-        # 步骤 1：特征投影 (Feature Projection) --> H * W
-        # ---------------------------------------------------------
-        # text_features: [batch_size, seq_len, in_features]
-        # self.weight: [in_features, out_features]
-        # PyTorch 的 matmul 非常智能，它会自动在 seq_len 维度上对每一个 Token 执行线性映射
-        # 映射后的 support 形状: [batch_size, seq_len, out_features]
+
         support = torch.matmul(text_features, self.weight)
-        
-        # ---------------------------------------------------------
-        # 步骤 2：图消息传递与特征聚合 (Message Passing & Aggregation) --> A * (H * W)
-        # ---------------------------------------------------------
-        # adj_matrix: [batch_size, seq_len, seq_len]
-        # support: [batch_size, seq_len, out_features]
-        # 这里进行的是批量矩阵乘法 (BMM)。
-        # 直观理解：邻接矩阵 A 描述了词与词之间的修饰关系。相乘的过程，
-        # 就是让句子中的每一个词，根据 A 的连接权重，把周围修饰词的特征 support 吸收过来。
-        # 聚合后的 output 形状: [batch_size, seq_len, out_features]
         output = torch.matmul(adj_matrix, support)
-        
-        # ---------------------------------------------------------
-        # 步骤 3：加上偏置项 --> (A * H * W) + b
-        # ---------------------------------------------------------
-        # output: [batch_size, seq_len, out_features]
-        # self.bias: [out_features]
-        # 借助 PyTorch 的广播机制 (Broadcasting)，偏置会被自动加到每一个 Token 的特征上
         output = output + self.bias
-        
-        # ---------------------------------------------------------
-        # 步骤 4：非线性激活与正则化 --> ReLU(...) -> Dropout(...)
-        # ---------------------------------------------------------
         output = torch.relu(output)
         output = self.dropout(output)
         
         return output
 
 # ================= 测试模块 =================
-# 你可以直接运行这个文件来测试这个层是否能正常跑通，且不报错
 if __name__ == "__main__":
     # 模拟超参数
     batch_size = 4
     seq_len = 32
     in_features = 768  # RoBERTa 的默认特征维度
-    out_features = 300 # 我们希望 GCN 提取出的核心特征维度
+    out_features = 300 # 希望 GCN 提取出的核心特征维度
     
     # 实例化 GCN 层
     gcn_layer = GCNLayer(in_features=in_features, out_features=out_features)
@@ -103,10 +74,6 @@ if __name__ == "__main__":
     # 2. 模拟从 spaCy 提取出的句法邻接矩阵
     # 通常邻接矩阵是一个稀疏的 0/1 矩阵，这里用随机数模拟
     dummy_adj_matrix = torch.randn(batch_size, seq_len, seq_len)
-    
-    print("====== GCN 层输入维度 ======")
-    print(f"文本特征维度 (H): {dummy_text_features.shape}")
-    print(f"邻接矩阵维度 (A): {dummy_adj_matrix.shape}")
     
     # 前向传播
     output_features = gcn_layer(dummy_text_features, dummy_adj_matrix)
