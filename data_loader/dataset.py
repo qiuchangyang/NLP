@@ -4,6 +4,7 @@ import os
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
+from data_loader.graph_builder import DependencyGraphBuilder
 
 class ABSADataset(Dataset):
     def __init__(self, json_path, tokenizer_name, max_len=128):
@@ -20,6 +21,9 @@ class ABSADataset(Dataset):
         # 初始化预训练模型的分词器
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, use_fast=True)
         self.max_len = max_len
+
+        #初始化句法图建造器
+        self.graph_builder = DependencyGraphBuilder()
 
         # 定义 BIO 标签映射字典
         # O = 0
@@ -80,14 +84,18 @@ class ABSADataset(Dataset):
                 # 容错处理：因为子词切分，有时候 offset_start 会比 char_start 稍微大一点
                 # （针对英文没空格粘连的情况），这部分可以在后续调优时通过正则进一步优化
 
-        # TODO: 阶段三时，这里需要读取 graph_builder.py 生成的句法邻接矩阵
-        # adj_matrix = load_adj_matrix(item['id']) 
+        adj_matrix = self.graph_builder.build_adj_matrix(
+            text=text, 
+            offset_mapping=offset_mapping.tolist(), # 转成 list 传进去
+            max_len=self.max_len
+        )
         
         # 组装返回字典
         return {
             'input_ids': input_ids,
             'attention_mask': attention_mask,
             'labels': labels,
+            'adj_matrix': torch.tensor(adj_matrix, dtype=torch.float32),
             'text': text  # 返回原文方便后期调试对照
         }
 
