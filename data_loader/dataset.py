@@ -1,10 +1,11 @@
 # PyTorch Dataset 类
 import json
 import os
+import random
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer
-from data_loader.graph_builder import DependencyGraphBuilder
+from graph_builder import DependencyGraphBuilder
 
 class ABSADataset(Dataset):
     def __init__(self, json_path, tokenizer_name, max_len=128):
@@ -98,35 +99,49 @@ class ABSADataset(Dataset):
             'adj_matrix': torch.tensor(adj_matrix, dtype=torch.float32),
             'text': text  # 返回原文方便后期调试对照
         }
+def split_offline_data(input_path, output_dir, seed=42):
+    """
+    将原始数据切分为 train, val, test 并落盘保存。
+    """
+    with open(input_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        
+    # 锁死 Python 原生随机种子并打乱数据
+    random.seed(seed)
+    random.shuffle(data)
+    
+    total_size = len(data)
+    train_size = int(0.8 * total_size)
+    val_size = int(0.1 * total_size)
+    
+    # 物理切片
+    train_data = data[:train_size]
+    val_data = data[train_size:train_size + val_size]
+    test_data = data[train_size + val_size:]
+    
+    # 确保输出文件夹存在
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # 写入硬盘
+    splits = {
+        "train.json": train_data,
+        "val.json": val_data,
+        "test.json": test_data
+    }
+    
+    for filename, split_data in splits.items():
+        save_path = os.path.join(output_dir, filename)
+        with open(save_path, 'w', encoding='utf-8') as f:
+            json.dump(split_data, f, ensure_ascii=False, indent=2)
 
 # ================= 运行测试模块 =================
 if __name__ == "__main__":
-    # 为了测试，我们用英文的 roberta-base
-    # 如果你本地跑不通网络，可以去掉预训练模型，这只是测试
-    print("正在下载/加载 RoBERTa Tokenizer...")
     TOKENIZER_NAME = 'roberta-base' 
     
     #json 文件
     current_file_path=os.path.abspath(__file__)
     current_dir_path=os.path.dirname(current_file_path)
     JSON_PATH = os.path.abspath(os.path.join(current_dir_path, "../data/processed/laptops_train.json"))
-
-    try:
-        # 实例化 Dataset
-        dataset = ABSADataset(json_path=JSON_PATH, tokenizer_name=TOKENIZER_NAME, max_len=32)
-        
-        print(f"数据集加载成功！共包含 {len(dataset)} 条有效数据。\n")
-        
-        # sample = dataset[0]
-        # print("====== 预处理结果展示 ======")
-        # print(f"【原始文本】: {sample['text']}")
-        # print(f"【Input IDs】:\n{sample['input_ids']}")
-        # print(f"【Attention Mask】:\n{sample['attention_mask']}")
-        # print(f"【Labels (BIO)】:\n{sample['labels']}")
-        # print("\n【Token <-> Label 对齐检查】:")
-        # tokens = dataset.tokenizer.convert_ids_to_tokens(sample['input_ids'])
-        # for token, label in zip(tokens, sample['labels'].tolist()):
-        #     if token not in ['<pad>', '<s>', '</s>']: # 过滤掉占位符
-        #         print(f"{token:>15}  --->  {label}")
-    except Exception as e:
-        print(f"运行出错，请检查 JSON 路径是否正确，或网络是否能连通 HuggingFace: {e}")
+    OUTPUT_DIR = os.path.join(current_dir_path, "..", "data", "processed")
+    
+    split_offline_data(JSON_PATH, OUTPUT_DIR)
