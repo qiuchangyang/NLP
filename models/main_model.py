@@ -3,9 +3,9 @@ import torch.nn as nn
 from transformers import AutoModel
 
 # 导入我们之前一步步写好并测试通过的零件
-from layers.gcn_layer import GCNLayer
-from layers.attention import SelfAttentionLayer
-from layers.crf_layer import CRFLayer
+from models.layers.gcn_layer import GCNLayer
+from models.layers.attention import SelfAttentionLayer
+from models.layers.crf_layer import CRFLayer
 
 class ABSAMainModel(nn.Module):
     def __init__(self, model_name_or_path, num_tags=7, gcn_out_dim=300, dropout_rate=0.1):

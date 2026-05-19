@@ -5,7 +5,7 @@ import random
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer
-from graph_builder import DependencyGraphBuilder
+from data_loader.graph_builder import DependencyGraphBuilder
 
 class ABSADataset(Dataset):
     def __init__(self, json_path, tokenizer_name, max_len=128):
