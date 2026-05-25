@@ -1,19 +1,18 @@
-# evaluate.py
 import torch
 from tqdm import tqdm
-from utils.metrics import compute_f1_score
+# ⚠️ 踢掉 sklearn，换上大名鼎鼎的 seqeval
+from seqeval.metrics import precision_score, recall_score, f1_score, accuracy_score
 
-def evaluate_model(model, dataloader, device):
+def evaluate_model(model, dataloader, device, id2label):
     """
-    在给定数据加载器上评估模型性能
+    注意：传入了一个 id2label 字典，用于把数字 0, 1, 2 转回 'O', 'B-Aspect', 'I-Aspect'
     """
-    model.eval() # 切换为评估模式
-    all_preds = []
-    all_trues = []
+    model.eval()
+    all_preds_str = []
+    all_trues_str = []
     
-    with torch.no_grad(): # 关闭梯度计算，节省显存
+    with torch.no_grad():
         for batch in tqdm(dataloader, desc="Evaluating", leave=False):
-            # 将数据推入显卡
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             adj_matrix = batch['adj_matrix'].to(device)
@@ -22,14 +21,25 @@ def evaluate_model(model, dataloader, device):
             # CRF 解码预测
             batch_preds = model(input_ids, attention_mask, adj_matrix, labels=None)
             
-            # 剥离 PAD 并对齐长度
             for i in range(len(batch_preds)):
                 pred_path = batch_preds[i] 
+                # 截断填充，拿到正确的数字序列
                 true_path = labels[i][:len(pred_path)].cpu().numpy().tolist() 
                 
-                all_preds.extend(pred_path)
-                all_trues.extend(true_path)
+                # ⚠️ 核心改变：不拉平列表！直接把数字映射回字符串标签！
+                # 假设 pred_path 是 [0, 1, 2, 0], id2label 转换后变成 ['O', 'B-Aspect', 'I-Aspect', 'O']
+                pred_str = [id2label[p] for p in pred_path]
+                true_str = [id2label[t] for t in true_path]
                 
-    # 调用 utils 中的计算工具
-    f1 = compute_f1_score(all_trues, all_preds, average='macro')
-    return f1
+                # 保持列表的列表（List of Lists）结构
+                all_preds_str.append(pred_str)
+                all_trues_str.append(true_str)
+                
+    # --- 调用 seqeval 计算严苛的实体级指标 ---
+    acc = accuracy_score(all_trues_str, all_preds_str)
+    # seqeval 默认就是针对实体跨度（Span）进行计算的
+    p = precision_score(all_trues_str, all_preds_str)
+    r = recall_score(all_trues_str, all_preds_str)
+    f1 = f1_score(all_trues_str, all_preds_str)
+    
+    return p, r, f1, acc

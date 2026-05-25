@@ -65,23 +65,32 @@ def main():
             total_loss += loss.item()
             train_bar.set_postfix({'loss': f"{loss.item():.4f}"})
             
-        print(f"🔥 [TRAIN] 平均 Loss: {total_loss/len(train_loader):.4f}")
+    print(f"🔥 [TRAIN] 平均 Loss: {total_loss/len(train_loader):.4f}")
         
-        # --- 4.2 调用独立的评估模块 ---
-        val_f1 = evaluate_model(model, val_loader, device)
-        print(f"📊 [VALIDATION] F1 Score: {val_f1:.4f}")
-        
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
-            torch.save(model.state_dict(), BEST_MODEL_PATH)
-            print(f"🎉 验证集创新高！权重已保存至: {BEST_MODEL_PATH}")
+    # --- 4.2 调用独立的评估模块 ---
+    # ⚠️ 注意：这里假设你的 evaluate_model 已经被修改为返回四个指标
+    val_p, val_r, val_f1, val_acc = evaluate_model(model, val_loader, device)
+    
+    print(f"📊 [VALIDATION] Acc: {val_acc:.4f} | Precision: {val_p:.4f} | Recall: {val_r:.4f} | F1: {val_f1:.4f}")
+    
+    if val_f1 > best_val_f1:
+        best_val_f1 = val_f1
+        # 可以选择在破纪录时也顺便打印一下这一轮的其他分数
+        print(f"🌟 新纪录！当前最佳 F1: {best_val_f1:.4f} (Acc: {val_acc:.4f})")
+        torch.save(model.state_dict(), BEST_MODEL_PATH)
+        print(f"🎉 验证集创新高！权重已保存至: {BEST_MODEL_PATH}")
             
     # 5. 最终盲测
     print("\n" + "*"*40)
     print("🏆 开始测试集最终盲测...")
     model.load_state_dict(torch.load(BEST_MODEL_PATH))
-    test_f1 = evaluate_model(model, test_loader, device)
-    print(f"✅ 终极无偏 F1 Score: {test_f1:.4f}")
+    test_p, test_r, test_f1, test_acc = evaluate_model(model, test_loader, device)
+    
+    print(f"✅ 终极无偏测试结果:")
+    print(f"   - 准确率 (Accuracy) : {test_acc:.4f}")
+    print(f"   - 精确率 (Precision): {test_p:.4f}")
+    print(f"   - 召回率 (Recall)   : {test_r:.4f}")
+    print(f"   - 宏平均 F1 Score   : {test_f1:.4f}")
 
 if __name__ == "__main__":
     main()

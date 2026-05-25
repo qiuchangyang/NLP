@@ -1,0 +1,24 @@
+# configs/default_config.yaml
+paths:
+  best_model_path: "checkpoints/best_model.pth"
+
+dataset:
+  max_length: 128
+  train_val_test_split: [0.8, 0.1, 0.1]
+
+training:
+  batch_size: 32
+  epochs: 100
+  learning_rate: 2.0e-5
+  lambda_asc: 1.0
+
+model:
+  pretrained_name: "roberta-base"
+  hidden_dim: 768
+  gcn_layers: 2
+  attention_heads: 8
+
+modules:
+  use_gcn: true         # 完全体模型：开启图卷积网络
+  use_attention: true   # 完全体模型：开启自注意力机制
+  use_crf: true         # 完全体模型：开启条件随机场

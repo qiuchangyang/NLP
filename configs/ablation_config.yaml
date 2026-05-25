@@ -1,0 +1,24 @@
+# configs/ablation_config.yaml
+paths:
+  best_model_path: "checkpoints/ablation_model.pth"
+
+dataset:
+  max_length: 128
+  train_val_test_split: [0.8, 0.1, 0.1]
+
+training:
+  batch_size: 32
+  epochs: 100
+  learning_rate: 2.0e-5
+  lambda_asc: 1.0
+
+model:
+  pretrained_name: "roberta-base"
+  hidden_dim: 768
+  gcn_layers: 0         # 消融实验：将GCN层数设为0
+  attention_heads: 8
+
+modules:
+  use_gcn: false        # 核心消融：关闭GCN模块，测试性能跌幅
+  use_attention: true
+  use_crf: true
